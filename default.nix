@@ -31,6 +31,7 @@ let
       configuration
       ./flavors/grapheneos
       ./flavors/lineageos
+      ./flavors/twrp
       ./flavors/vanilla
       ./modules/10
       ./modules/11
