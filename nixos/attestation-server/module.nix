@@ -107,7 +107,9 @@ in
       wantedBy = [ "multi-user.target" ];
       requires = [ "network-online.target" ];
 
-      serviceConfig = {
+      serviceConfig = (lib.optionalAttrs (cfg.email.passwordFile != null) {
+        LoadCredential = "AttestationServerEmailPassword:${cfg.email.passwordFile}";
+      }) // {
         ExecStart = "${cfg.package}/bin/AttestationServer";
         ExecStartPre = let
           inherit (cfg.email) username passwordFile host port local;
@@ -116,7 +118,7 @@ in
           # truncate the trailing newline (\n = char(10)) anyway.
           values = lib.concatStringsSep ", " [
             "('emailUsername', '${username}')"
-            "('emailPassword', TRIM(readfile('%S/attestation/emailPassword'), char(10)))"
+            "('emailPassword', TRIM(readfile('$CREDENTIALS_DIRECTORY/AttestationServerEmailPassword'), char(10)))"
             "('emailHost', '${host}')"
             "('emailPort', '${toString port}')"
             "('emailLocal', '${if local then "1" else "0"}')"
@@ -125,12 +127,9 @@ in
           # Note the leading + on the first command. The passwordFile could be
           # anywhere in the file system, so it has to be copied as root and
           # permissions fixed to be accessible by the service.
-          "+${pkgs.coreutils}/bin/install -m 0640 -g keys ${passwordFile} %S/attestation/emailPassword"
           ''${pkgs.sqlite}/bin/sqlite3 %S/attestation/attestation.db "CREATE TABLE IF NOT EXISTS Configuration (key TEXT PRIMARY KEY NOT NULL, value NOT NULL)"''
           ''${pkgs.sqlite}/bin/sqlite3 %S/attestation/attestation.db "INSERT OR REPLACE INTO Configuration VALUES ${values}"''
-          "${pkgs.coreutils}/bin/rm -f %S/attestation/emailPassword"
         ];
-        SupplementaryGroups = [ "keys" ];
 
         # When sending TERM, e.g. for restart, AttestationServer fails with
         # this exit code.
