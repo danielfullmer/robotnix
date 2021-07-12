@@ -1,0 +1,103 @@
+From 12382e7d66d993d89e52e840e7965009de2f81e5 Mon Sep 17 00:00:00 2001
+From: Samuel Dionne-Riel <samuel@dionne-riel.com>
+Date: Sat, 24 Apr 2021 21:05:00 -0400
+Subject: [PATCH] Work around source files being read-only
+
+---
+ core/Makefile | 33 +++++++++++++++++----------------
+ 1 file changed, 17 insertions(+), 16 deletions(-)
+
+diff --git a/core/Makefile b/core/Makefile
+index 2f7219daa..43017a35b 100644
+--- a/core/Makefile
++++ b/core/Makefile
+@@ -84,7 +84,7 @@ gen := $(OUT_DOCS)/index.html
+ ALL_DOCS += $(gen)
+ $(gen): frameworks/base/docs/docs-redirect-index.html
+ 	@mkdir -p $(dir $@)
+-	@cp -f $< $@
++	@cp --no-preserve=owner,mode -f $< $@
+ endif
+ 
+ ndk_doxygen_out := $(OUT_NDK_DOCS)
+@@ -1052,7 +1052,7 @@ $(TARGET_OUT_ETC)/update_engine/update-payload-key.pub.pem: $(addsuffix .x509.pe
+ 
+ ALL_DEFAULT_INSTALLED_MODULES += $(TARGET_RECOVERY_ROOT_OUT)/etc/update_engine/update-payload-key.pub.pem
+ $(TARGET_RECOVERY_ROOT_OUT)/etc/update_engine/update-payload-key.pub.pem: $(TARGET_OUT_ETC)/update_engine/update-payload-key.pub.pem
+-	$(hide) cp -f $< $@
++	$(hide) cp --no-preserve=owner,mode -f $< $@
+ endif
+ endif
+ 
+@@ -1413,27 +1413,28 @@ define build-recoveryramdisk
+   # Use rsync because "cp -Rf" fails to overwrite broken symlinks on Mac.
+   $(hide) rsync -a --exclude=etc --exclude=sdcard --exclude=vendor $(IGNORE_RECOVERY_SEPOLICY) $(IGNORE_CACHE_LINK) $(TARGET_ROOT_OUT) $(TARGET_RECOVERY_OUT)
+   # Copy adbd from system/bin to recovery/root/sbin
+-  $(hide) cp -f $(TARGET_OUT_EXECUTABLES)/adbd $(TARGET_RECOVERY_ROOT_OUT)/sbin/adbd
++  $(hide) cp --no-preserve=owner,mode -f $(TARGET_OUT_EXECUTABLES)/adbd $(TARGET_RECOVERY_ROOT_OUT)/sbin/adbd
+   # Modifying ramdisk contents...
+   $(if $(BOARD_RECOVERY_KERNEL_MODULES), \
+     $(call build-image-kernel-modules,$(BOARD_RECOVERY_KERNEL_MODULES),$(TARGET_RECOVERY_ROOT_OUT),,$(call intermediates-dir-for,PACKAGING,depmod_recovery)))
+   # Removes $(TARGET_RECOVERY_ROOT_OUT)/init*.rc EXCEPT init.recovery*.rc.
+   $(hide) find $(TARGET_RECOVERY_ROOT_OUT) -maxdepth 1 -name 'init*.rc' -type f -not -name "init.recovery.*.rc" | xargs rm -f
+-  $(hide) cp -f $(recovery_initrc) $(TARGET_RECOVERY_ROOT_OUT)/
+-  $(hide) cp $(TARGET_ROOT_OUT)/init.recovery.*.rc $(TARGET_RECOVERY_ROOT_OUT)/ || true # Ignore error when the src file doesn't exist.
++  $(hide) cp --no-preserve=owner,mode -f $(recovery_initrc) $(TARGET_RECOVERY_ROOT_OUT)/
++  chmod -R +w $(TARGET_RECOVERY_ROOT_OUT)
++  $(hide) cp --no-preserve=owner,mode $(TARGET_ROOT_OUT)/init.recovery.*.rc $(TARGET_RECOVERY_ROOT_OUT)/ || true # Ignore error when the src file doesn't exist.
+   $(hide) mkdir -p $(TARGET_RECOVERY_ROOT_OUT)/res
+   $(hide) rm -rf $(TARGET_RECOVERY_ROOT_OUT)/res/*
+-  $(hide) cp -rf $(recovery_resources_common)/* $(TARGET_RECOVERY_ROOT_OUT)/res
+-  $(hide) cp -f $(recovery_font) $(TARGET_RECOVERY_ROOT_OUT)/res/images/font.png
++  $(hide) cp --no-preserve=owner,mode -rf $(recovery_resources_common)/* $(TARGET_RECOVERY_ROOT_OUT)/res
++  $(hide) cp --no-preserve=owner,mode -f $(recovery_font) $(TARGET_RECOVERY_ROOT_OUT)/res/images/font.png
+   $(hide) $(foreach item,$(recovery_root_private), \
+-    cp -rf $(item) $(TARGET_RECOVERY_OUT)/;)
++    cp --no-preserve=owner,mode -rf $(item) $(TARGET_RECOVERY_OUT)/;)
+   $(hide) $(foreach item,$(TARGET_PRIVATE_RES_DIRS), \
+-    cp -rf $(item) $(TARGET_RECOVERY_ROOT_OUT)/$(newline))
++    cp --no-preserve=owner,mode -rf $(item) $(TARGET_RECOVERY_ROOT_OUT)/$(newline))
+   $(hide) $(foreach item,$(recovery_fstab), \
+-    cp -f $(item) $(TARGET_RECOVERY_ROOT_OUT)/etc/recovery.fstab)
++    cp --no-preserve=owner,mode -f $(item) $(TARGET_RECOVERY_ROOT_OUT)/etc/recovery.fstab)
+   $(if $(strip $(recovery_wipe)), \
+-    $(hide) cp -f $(recovery_wipe) $(TARGET_RECOVERY_ROOT_OUT)/etc/recovery.wipe)
+-  $(hide) cp $(RECOVERY_INSTALL_OTA_KEYS) $(TARGET_RECOVERY_ROOT_OUT)/res/keys
++    $(hide) cp --no-preserve=mode -f $(recovery_wipe) $(TARGET_RECOVERY_ROOT_OUT)/etc/recovery.wipe)
++  $(hide) cp --no-preserve=owner,mode $(RECOVERY_INSTALL_OTA_KEYS) $(TARGET_RECOVERY_ROOT_OUT)/res/keys
+   $(hide) cat $(INSTALLED_DEFAULT_PROP_TARGET) \
+           > $(TARGET_RECOVERY_ROOT_OUT)/prop.default
+   $(if $(INSTALLED_VENDOR_DEFAULT_PROP_TARGET), \
+@@ -1514,7 +1515,7 @@ $(recovery_uncompressed_ramdisk): $(MKBOOTFS) $(ADBD) \
+ 		$(BOARD_RECOVERY_KERNEL_MODULES) \
+ 		$(DEPMOD)
+ 		$(call build-recoveryramdisk)
+-		@echo ----- Making uncompressed recovery ramdisk ------
++		@echo ----- Making uncompressed recovery ramdisk YAY ------
+ 		$(hide) $(MKBOOTFS) $(TARGET_RECOVERY_ROOT_OUT) > $@
+ 
+ $(recovery_ramdisk): $(MINIGZIP) \
+@@ -1857,7 +1858,7 @@ endif
+ define build-boottarball-target
+     $(hide) echo "Target boot fs tarball: $(INSTALLED_BOOTTARBALL_TARGET)"
+     $(hide) mkdir -p $(PRODUCT_OUT)/boot
+-    $(hide) cp -f $(INTERNAL_BOOTIMAGE_FILES) $(PRODUCT_OUT)/boot/.
++    $(hide) cp --no-preserve=owner,mode -f $(INTERNAL_BOOTIMAGE_FILES) $(PRODUCT_OUT)/boot/.
+     $(hide) echo $(INTERNAL_KERNEL_CMDLINE) > $(PRODUCT_OUT)/boot/cmdline
+     $(hide) $(MKTARBALL) $(FS_GET_STATS) \
+                  $(PRODUCT_OUT) boot $(PRIVATE_BOOT_TAR) \
+@@ -3398,9 +3399,9 @@ $(INTERNAL_SDK_TARGET): $(deps)
+ 			-v "DLL_EXTENSION=$(HOST_SHLIB_SUFFIX)" \
+ 			-v "FONT_OUT=$(SDK_FONT_TEMP)" \
+ 			-o $(PRIVATE_DIR) && \
+-		cp -f $(target_notice_file_txt) \
++		cp --no-preserve=owner,mode -f $(target_notice_file_txt) \
+ 				$(PRIVATE_DIR)/system-images/android-$(PLATFORM_VERSION)/$(TARGET_CPU_ABI)/NOTICE.txt && \
+-		cp -f $(tools_notice_file_txt) $(PRIVATE_DIR)/platform-tools/NOTICE.txt && \
++		cp --no-preserve=owner,mode -f $(tools_notice_file_txt) $(PRIVATE_DIR)/platform-tools/NOTICE.txt && \
+ 		HOST_OUT_EXECUTABLES=$(HOST_OUT_EXECUTABLES) HOST_OS=$(HOST_OS) \
+ 			development/build/tools/sdk_clean.sh $(PRIVATE_DIR) && \
+ 		chmod -R ug+rwX $(PRIVATE_DIR) && \
+-- 
+2.29.2
+

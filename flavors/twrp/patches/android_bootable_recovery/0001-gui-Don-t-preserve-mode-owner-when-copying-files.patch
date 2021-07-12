@@ -1,0 +1,29 @@
+From 36960782d92c384db2d74795d458a3cfb5f6013d Mon Sep 17 00:00:00 2001
+From: Samuel Dionne-Riel <samuel@dionne-riel.com>
+Date: Sat, 24 Apr 2021 18:46:05 -0400
+Subject: [PATCH] gui: Don't preserve mode,owner when copying files
+
+When building under some strict build environments, like robotnix, it
+fails since the source files are in directories without +w.
+---
+ gui/Android.mk | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/gui/Android.mk b/gui/Android.mk
+index 32c0d5b1..4ccdf386 100755
+--- a/gui/Android.mk
++++ b/gui/Android.mk
+@@ -216,8 +216,8 @@ TWRP_RES += $(TW_ADDITIONAL_RES)
+ TWRP_RES_GEN := $(intermediates)/twrp
+ $(TWRP_RES_GEN):
+ 	mkdir -p $(TARGET_RECOVERY_ROOT_OUT)$(TWRES_PATH)
+-	cp -fr $(TWRP_RES) $(TARGET_RECOVERY_ROOT_OUT)$(TWRES_PATH)
+-	cp -fr $(TWRP_THEME_LOC)/* $(TARGET_RECOVERY_ROOT_OUT)$(TWRES_PATH)
++	cp --no-preserve=owner,mode -fr $(TWRP_RES) $(TARGET_RECOVERY_ROOT_OUT)$(TWRES_PATH)
++	cp --no-preserve=owner,mode -fr $(TWRP_THEME_LOC)/* $(TARGET_RECOVERY_ROOT_OUT)$(TWRES_PATH)
+ 
+ LOCAL_GENERATED_SOURCES := $(TWRP_RES_GEN)
+ LOCAL_SRC_FILES := twrp $(TWRP_RES_GEN)
+-- 
+2.29.2
+
