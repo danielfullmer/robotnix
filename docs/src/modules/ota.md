@@ -35,9 +35,9 @@ described in the next section.
 
 ## Actually serving OTA updates over the air
 
-> *Note:* These instructions have only been tested with the Vanilla and
-> GrapheneOS flavors.  This method likely will not with the LineageOS flavor
-> because it uses its own updater.
+> *Note:* The Vanilla and GrapheneOS flavors use a different updater than the LineageOS flavor,
+> therefore they might behave slightly different from one another.
+> The instructions below should however work for both.
 
 Essentially this boils down to just serving the `otaDir` build output on the
 web, e.g. with nginx.  To receive OTA updates on the device, enable the updater
@@ -79,9 +79,9 @@ updating before the copy/upload is complete.
 $ cp --no-dereference ota-dir /var/www/android
 $ tree -l /var/www
 /var/www
-└── android -> /nix/store/dbjcl9lwn6xif9c0fy8d2wwpn9zi4hw4-sunfish-otaDir                   
+└── android -> /nix/store/dbjcl9lwn6xif9c0fy8d2wwpn9zi4hw4-sunfish-otaDir
     ├── sunfish-ota_update-2021.02.06.16.zip -> /nix/store/wwr49all6x868f0mdl11369ybfwyir0f-sunfish-ota_update-2021.02.06.16.zip
-    ├── sunfish-stable -> /nix/store/c1rp46m9spncanacglqs5mxk6znfs44s-sunfish-stable                             
+    ├── sunfish-stable -> /nix/store/c1rp46m9spncanacglqs5mxk6znfs44s-sunfish-stable
     └── sunfish-target_files-2021.02.06.16.zip -> /nix/store/8ys21rzjqhi2055d7bd4iwa15fv1m446-sunfish-signed_target_files-2021.02.06.16.zip
 ```
 Of course, this doesn't have to be located at `/var/www` and it's totally

@@ -25,24 +25,36 @@ in
         description = "URL for OTA updates";
         apply = x: if lib.hasSuffix "/" x then x else x + "/";
       };
+
+      flavor = mkOption {
+        type = types.enum [ "grapheneos" "lineageos" ];
+        default = "grapheneos";
+        description = ''
+          Which updater package to use, and which kind of metadata to generate for it.
+        '';
+      };
     };
   };
 
   config = mkIf cfg.enable (mkMerge [
     {
-      source.dirs."robotnix/apps/Updater".src = src;
+      source.dirs."robotnix/apps/Updater".src = mkIf (cfg.flavor == "grapheneos") src;
 
       # It's currently a system package in upstream
       system.additionalProductPackages = [ "Updater" ];
 
-      resources."robotnix/apps/Updater" = {
+      resources."robotnix/apps/Updater" = mkIf (cfg.flavor == "grapheneos") {
         inherit (cfg) url;
         channel_default = config.channel;
+      };
+
+      resources."packages/apps/Updater" = mkIf (cfg.flavor == "lineageos") {
+        updater_server_url = cfg.url;
       };
     }
 
     # Add selinux policies
-    (mkIf (config.flavor != "grapheneos" && config.androidVersion >= 11) {
+    (mkIf (config.flavor == "grapheneos" && config.androidVersion >= 11) {
       source.dirs."robotnix/updater-sepolicy".src = ./updater-sepolicy;
       source.dirs."build/make".postPatch = ''
         # Originally from https://github.com/RattlesnakeOS/core-config-repo/blob/0d2cb86007c3b4df98d4f99af3dedf1ccf52b6b1/hooks/aosp_build_pre.sh

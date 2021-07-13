@@ -8,7 +8,7 @@ let
     elem mapAttrs mapAttrs' nameValuePair filterAttrs
     attrNames getAttrs flatten remove
     mkIf mkMerge mkDefault mkForce
-    importJSON toLower;
+    importJSON toLower removePrefix;
 
   androidVersionToLineageBranch = {
     "10" = "lineage-17.1";
@@ -67,6 +67,7 @@ in mkIf (config.flavor == "lineageos")
   androidVersion = let
       defaultBranch = deviceMetadata.${config.device}.branch;
     in mkIf (deviceMetadata ? ${config.device}) (mkDefault (lib.toInt lineageBranchToAndroidVersion.${defaultBranch}));
+  flavorVersion = removePrefix "lineage-" androidVersionToLineageBranch.${toString config.androidVersion};
 
   productNamePrefix = "lineage_"; # product names start with "lineage_"
 
@@ -141,6 +142,8 @@ in mkIf (config.flavor == "lineageos")
   webview.prebuilt.apk = config.source.dirs."external/chromium-webview".src + "/prebuilt/${config.arch}/webview.apk";
   webview.prebuilt.availableByDefault = mkDefault true;
   removedProductPackages = [ "webview" ];
+
+  apps.updater.flavor = mkDefault "lineageos";
 
   # Needed by included kernel build for some devices (pioneer at least)
   envPackages = [ pkgs.openssl.dev ] ++ optionals (config.androidVersion == 11) [ pkgs.gcc.cc pkgs.glibc.dev ];

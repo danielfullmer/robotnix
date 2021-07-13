@@ -4,7 +4,7 @@
 { config, pkgs, lib, ... }:
 
 let
-  inherit (lib) mkIf mkDefault mkOption types;
+  inherit (lib) mkIf mkDefault mkOption types optionalString;
 
   otaTools = config.build.otaTools;
 
@@ -134,15 +134,46 @@ in
     bootImg = pkgs.runCommand "boot.img" {} "${pkgs.unzip}/bin/unzip -p ${targetFiles} IMAGES/boot.img > $out";
 
     # BUILDID_PLACEHOLDER below was originally config.apv.buildID, but we don't want to have to depend on setting a buildID generally.
-    otaMetadata = pkgs.writeText "${config.device}-${config.channel}" ''
-      ${config.buildNumber} ${toString config.buildDateTime} BUILDID_PLACEHOLDER ${config.channel}
-    '';
+    otaMetadata = (rec {
+      grapheneos = pkgs.writeText "${config.device}-${config.channel}" ''
+        ${config.buildNumber} ${toString config.buildDateTime} BUILDID_PLACEHOLDER ${config.channel}
+      '';
+      lineageos = pkgs.writeText "${config.device}.json" (
+        # https://github.com/LineageOS/android_packages_apps_Updater#server-requirements
+        builtins.toJSON {
+          response = [
+            {
+              "datetime" = config.buildDateTime;
+              "filename" = ota.name;
+              "id" = config.buildNumber;
+              "romtype" = config.envVars.RELEASE_TYPE;
+              "size" = "ROM_SIZE";
+              "url" = "${config.apps.updater.url}${ota.name}";
+              "version" = config.flavorVersion;
+            }
+          ];
+        }
+      );
+    }).${config.apps.updater.flavor};
+
+    writeOtaMetadata = path: {
+      grapheneos = ''
+        cat ${otaMetadata} > ${path}/${config.device}-${config.channel}
+      '';
+      lineageos = ''
+        sed -e "s:\"ROM_SIZE\":$(du -b ${ota} | cut -f1):" ${otaMetadata} > ${path}/${config.device}.json
+      '';
+    }.${config.apps.updater.flavor};
 
     # TODO: target-files aren't necessary to publish--but are useful to include if prevBuildDir is set to otaDir output
-    otaDir = pkgs.linkFarm "${config.device}-otaDir" (
-      (map (p: {name=p.name; path=p;}) ([ ota otaMetadata ] ++ (lib.optional config.incremental incrementalOta)))
-      ++ [{ name="${config.device}-target_files-${config.buildNumber}.zip"; path=targetFiles; }]
-    );
+    otaDir = pkgs.runCommand "${config.device}-otaDir" {} ''
+      mkdir -p $out
+      ln -s "${ota}" "$out/${ota.name}"
+      ln -s "${targetFiles}" "$out/${config.device}-target_files-${config.buildNumber}.zip"
+      ${lib.optionalString config.incremental ''ln -s ${incrementalOta} "$out/${incrementalOta.name}"''}
+
+      ${writeOtaMetadata (placeholder "out")}
+    '';
 
     # TODO: Do this in a temporary directory. It's ugly to make build dir and ./tmp/* dir gets cleared in these scripts too.
     releaseScript =
@@ -173,7 +204,7 @@ in
       echo Building factory image
       ${factoryImgScript { targetFiles=signedTargetFiles.name; img=img.name; out=factoryImg.name; }}
       echo Writing updater metadata
-      cat ${otaMetadata} > ${config.device}-${config.channel}
+      ${writeOtaMetadata "."}
     ''; }));
   };
 }

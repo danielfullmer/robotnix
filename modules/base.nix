@@ -129,6 +129,12 @@ in
       description = "Used to select which Android version to use";
     };
 
+    flavorVersion = mkOption {
+      type = types.str;
+      internal = true;
+      description = "Version used by this flavor of Android";
+    };
+
     apiLevel = mkOption {
       type = types.int;
       internal = true;
