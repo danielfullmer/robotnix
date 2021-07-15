@@ -1,5 +1,4 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i python -p python3 nix-prefetch-git -I nixpkgs=../../pkgs
+#!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2020 Daniel Fullmer and robotnix contributors
 # SPDX-License-Identifier: MIT
 
@@ -17,7 +16,7 @@ import urllib.request
 
 LINEAGE_REPO_BASE = "https://github.com/LineageOS"
 VENDOR_REPO_BASE = "https://github.com/TheMuppets"
-MIRRORS = {}
+MIRRORS = dict(mirror.split("=") for mirror in os.environ.get('ROBOTNIX_GIT_MIRRORS', '').split('|'))
 REMOTE_REFS = {} # url: { ref: rev }
 
 def save(filename, data):
@@ -151,15 +150,10 @@ def fetch_vendor_dirs(metadata, filename, branch):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--branch', help="lineageos version")
-    parser.add_argument('--mirror', default=[], action='append', help="a repo mirror to use for a given url, specified by <url>=<path>")
     parser.add_argument('product', nargs='*',
                         help='product to fetch directory metadata for, specified by <vendor>_<device> (example: google_crosshatch) '
                         'If no products are specified, all products in device-metadata.json will be updated')
     args = parser.parse_args()
-
-    for mirror in args.mirror:
-        url, path = mirror.split('=')
-        MIRRORS[url] = path
 
     if len(args.product) == 0:
         metadata = json.load(open('device-metadata.json'))

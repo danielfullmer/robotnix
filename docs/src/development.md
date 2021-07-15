@@ -16,6 +16,40 @@ As such, robotnix does not replace the existing Android build system, but provid
 
 Feel free to ask robotnix development questions in `#robotnix` on Freenode.
 
+## Git mirrors
+Robotnix can be configured to use local git mirrors of Android source code.
+The AOSP documentation includes instructions to [create a local mirror of the Android source code](https://source.android.com/setup/build/downloading#using-a-local-mirror).
+Maintaining a local mirror can save bandwidth in the long-run when repeatedly updating a flavor over time which contains incremental updates.
+
+This functionality is enabled by setting the `ROBOTNIX_GIT_MIRRORS` environment variable.
+The value of `ROBOTNIX_GIT_MIRRORS` contains a number of mappings, each separated by a `|` character.
+Each mapping is of the format `<remote_url>=<local_url>`.
+For example:
+```
+ROBOTNIX_GIT_MIRRORS=https://android.googlesource.com=/mnt/cache/mirror|https://github.com/LineageOS=/mnt/cache/lineageos/LineageOS
+```
+
+Both the robotnix update scripts as well as robotnix's overridden `fetchgit` derivation use `ROBOTNIX_GIT_MIRRORS`.
+This environment variable is passed to `fetchgit` via `impureEnvVars` (search for `impureEnvVars` in the [Nix manual](https://nixos.org/manual/nix/stable/)).
+If the Nix daemon is being used, it needs to have this `ROBOTNIX_GIT_MIRRORS` in its environment, not just in the user's environment when running `nix-build` or `nix build`.
+The following NixOS configuration can be used to easily set this environment variable for the Nix daemon:
+```nix
+let
+  mirrors = {
+    "https://android.googlesource.com" = "/mnt/cache/mirror";
+    "https://github.com/LineageOS" = "/mnt/cache/lineageos/LineageOS";
+  };
+in
+{
+  systemd.services.nix-daemon.serviceConfig.Environment = [
+    ("ROBOTNIX_GIT_MIRRORS=" + lib.concatStringsSep "|" (lib.mapAttrsToList (local: remote: "${local}=${remote}") mirrors))
+  ];
+
+  # Also add local mirrors to nix sandbox exceptions
+  nix.sandboxPaths = lib.attrValues mirrors;
+}
+```
+
 ## Helper scripts
 Robotnix can produce a few helper scripts that can make Android development easier in some circumstances.
 

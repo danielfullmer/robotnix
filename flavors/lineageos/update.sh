@@ -4,16 +4,6 @@
 
 set -eu
 
-if [[ "$USER" = "danielrf" ]]; then
-    mirror_args=(
-        --mirror "https://android.googlesource.com=/mnt/cache/mirror"
-        --mirror "https://github.com/LineageOS=/mnt/cache/lineageos/LineageOS"
-        --mirror "https://github.com/TheMuppets=/mnt/cache/muppets/TheMuppets"
-    )
-else
-    mirror_args=()
-fi
-
 branch=$1
 
 args=(
@@ -26,5 +16,5 @@ args=(
 export TMPDIR=/tmp
 
 ./update-device-metadata.py
-../../mk-repo-file.py --out "${branch}/repo.json" "${mirror_args[@]}" "${args[@]}"
-./update-device-dirs.py --branch "$branch" "${mirror_args[@]}"
+../../mk-repo-file.py --out "${branch}/repo.json" "${args[@]}"
+./update-device-dirs.py --branch "$branch"
